@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Todo | Todo</title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+<body>
+<h1>TODO LIST</h1>
+<form method="post" action="/todo">
+    <input type="text" name="note"/>
+    <button type="submit">Kreiraj novu</button>
+</form>
+<ul>
+    <% for(var i=0; i<todoList.length; i++) { %>
+    <li>
+        <%= todoList[i].note %>
+    </li>
+    <% } %>
+</ul>
+<a href="/logout">Logout</a>
+</body>
+</html>
