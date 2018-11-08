@@ -4,7 +4,8 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
-var mainRouter = require('./routes/main');
+var userRouter = require('./routes/user');
+var todoRouter = require('./routes/todo');
 
 var app = express();
 
@@ -20,16 +21,18 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(function(req, res, next){
 
-    if (req.cookies['username'] !== undefined) {
-      req.body.currentUser = req.cookies['username'];
+    if (req.cookies['uid'] !== undefined) {
+      req.body.uid = req.cookies['uid'];
     } else {
-      req.body.currentUser = null;
+      req.body.uid = null;
     }
     next();
 
 });
 
-app.use('/', mainRouter);
+app.use('/', userRouter);
+app.use('/todo', todoRouter);
+
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
