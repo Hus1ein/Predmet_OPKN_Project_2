@@ -14,22 +14,24 @@ router.post('/login', function(req, res, next) {
     let password = req.body.password;
 
     if (username !== "" && password !== "") {
-        let currentUser = database.verifyUser(username, password);
-        let userToken = undefined;
-        if (currentUser !== null) {
+        database.verifyUser(username, password, function (currentUser) {
+            let userToken = undefined;
+            if (currentUser !== null) {
 
-            if (currentUser.token !== undefined) {
-                userToken = currentUser.token;
+                if (currentUser.token !== undefined) {
+                    userToken = currentUser.token;
+                } else {
+                    let userToken = database.updateUserToken(username, currentUser.id);
+                    res.cookie('uid', userToken);
+                    res.render('greetingMessage', {'username': username});
+                }
+                res.cookie('uid', userToken);
+                res.redirect('../todo');
             } else {
-                let currentUserId = database.getUserIdByUsername(currentUser.username);
-                userToken = database.updateUserToken(currentUserId);
+                res.render('notRegistered');
             }
 
-            res.cookie('uid', userToken);
-            res.redirect('../todo');
-            return;
-        }
-        res.render('notRegistered');
+        });
     } else {
         res.render('home');
     }
@@ -43,17 +45,22 @@ router.post('/signup', function(req, res, next) {
     let password = req.body.password;
 
     if (username !== "" && password !== ""){
-        let user = database.getUserByUsername(username);
-        if (user !== null) {
-            res.render('alreadyRegistered', {'username': username});
-            return;
-        }
+        database.getUserByUsername(username, function (result) {
+            if (result !== null) {
+                res.render('alreadyRegistered', {'username': username});
+            } else {
+                database.createUser({'username' : username, 'password' : password});
+                database.getUserIdByUsername(username, function (userId) {
+                    if (userId !== -1) {
+                        let userToken = database.updateUserToken(username, userId);
+                        res.cookie('uid', userToken);
+                        res.render('greetingMessage', {'username': username});
+                    }
+                });
 
-        database.createUser({'username' : username, 'password' : password});
-        let currentUserId = database.getUserIdByUsername(username);
-        let userToken = database.updateUserToken(currentUserId);
-        res.cookie('uid', userToken);
-        res.render('greetingMessage', {'username': username});
+            }
+        });
+
     } else {
         res.render('home');
     }
