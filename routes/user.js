@@ -2,6 +2,12 @@ let express = require('express');
 let database = require('../Helpers/database');
 let router = express.Router();
 
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
+var Sequelize = require('sequelize');
+
+let dbPath = path.resolve(__dirname, '../db/database.sqlite');
+
 /* GET home page. */
 router.get('/', function(req, res, next) {
     res.render('home');
@@ -46,13 +52,15 @@ router.post('/signup', function(req, res, next) {
 
     if (username !== "" && password !== ""){
         database.getUserByUsername(username, function (result) {
+            console.log(result);
             if (result !== null) {
                 res.render('alreadyRegistered', {'username': username});
             } else {
-                database.createUser({'username' : username, 'password' : password});
-                database.getUserIdByUsername(username, function (userId) {
-                    if (userId !== -1) {
-                        let userToken = database.updateUserToken(username, userId);
+                database.createUser({'username' : req.body.username, 'password' : password});
+                database.getUserByUsername('hussain.abdelilah@hotmail.com', function (user) {
+                    console.log(user);
+                    if (user !== null) {
+                        let userToken = database.updateUserToken(username, user.id);
                         res.cookie('uid', userToken);
                         res.render('greetingMessage', {'username': username});
                     }
@@ -71,6 +79,10 @@ router.post('/signup', function(req, res, next) {
 router.get('/logout', function(req, res, next) {
     res.clearCookie('uid');
     res.redirect('../');
+});
+
+router.get('/test', function (req, res, next) {
+    console.log("Hello");
 });
 
 module.exports = router;

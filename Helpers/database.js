@@ -1,13 +1,62 @@
-let path = require('path');
-let sqlite3 = require('sqlite3').verbose();
-
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 const index = require('./index');
+const Sequelize = require('sequelize');
+const dbPath = path.resolve(__dirname, '../db/database.sqlite');
 
+module.exports = () => {
+
+    let sequelize = new Sequelize('database', null, null, {
+        dialect: "sqlite",
+        storage: dbPath,
+    });
+
+    sequelize
+        .authenticate()
+        .then(function(err) {
+            console.log('Connection has been established successfully.');
+        }, function (err) {
+            console.log('Unable to connect to the database:', err);
+        });
+
+    const Users = require('./../models/users')(sequelize, Sequelize);
+    const Tasks = require('./../models/tasks')(sequelize, Sequelize);
+
+    //  SYNC SCHEMA
+    sequelize
+        .sync({ force: false })  // Don't DROP TABLE IF EXISTS
+        .then(function(err) {
+            console.log('It worked!');
+        }, function (err) {
+            console.log('An error occurred while creating the table:', err);
+        });
+
+    return sequelize;
+
+};
+
+/*
 module.exports = {
 
     users : [],
     tasks : [],
     dbPath : path.resolve(__dirname, '../db/database.db'),
+
+    test : function () {
+        var sequelize = new Sequelize('database', 'username', 'password', {
+            host: 'localhost',
+            dialect: 'mysql'|'mariadb'|'sqlite'|'postgres'|'mssql',
+
+            pool: {
+                max: 5,
+                min: 0,
+                idle: 10000
+            },
+
+            // SQLite only
+            storage: 'path/to/database.sqlite'
+        });
+    },
 
     initTables : function () {
 
@@ -121,3 +170,4 @@ module.exports = {
     },
 };
 
+*/
