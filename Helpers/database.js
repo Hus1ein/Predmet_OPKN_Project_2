@@ -1,95 +1,28 @@
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const index = require('./index');
-const Sequelize = require('sequelize');
-const dbPath = path.resolve(__dirname, '../db/database.sqlite');
+const User = require('./../models').User;
+const Todo = require('./../models').Todo;
 
-module.exports = () => {
-
-    let sequelize = new Sequelize('database', null, null, {
-        dialect: "sqlite",
-        storage: dbPath,
-    });
-
-    sequelize
-        .authenticate()
-        .then(function(err) {
-            console.log('Connection has been established successfully.');
-        }, function (err) {
-            console.log('Unable to connect to the database:', err);
-        });
-
-    const Users = require('./../models/users')(sequelize, Sequelize);
-    const Tasks = require('./../models/tasks')(sequelize, Sequelize);
-
-    //  SYNC SCHEMA
-    sequelize
-        .sync({ force: false })  // Don't DROP TABLE IF EXISTS
-        .then(function(err) {
-            console.log('It worked!');
-        }, function (err) {
-            console.log('An error occurred while creating the table:', err);
-        });
-
-    return sequelize;
-
-};
-
-/*
 module.exports = {
 
     users : [],
     tasks : [],
     dbPath : path.resolve(__dirname, '../db/database.db'),
 
-    test : function () {
-        var sequelize = new Sequelize('database', 'username', 'password', {
-            host: 'localhost',
-            dialect: 'mysql'|'mariadb'|'sqlite'|'postgres'|'mssql',
-
-            pool: {
-                max: 5,
-                min: 0,
-                idle: 10000
-            },
-
-            // SQLite only
-            storage: 'path/to/database.sqlite'
+    createUser : function (user, callback) {
+        user.password = index.passwordHashing(user.password);
+        User.create({
+            username: user.username,
+            password: user.password
+        }).then(result => {
+            callback(result);
         });
     },
 
-    initTables : function () {
-
-        let db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
-        let createUsersTable = 'CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username VARCHAR(20), password VARCHAR(30), token text)';
-        let createItemsTable = 'CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, task TEXT)';
-
-        db.run(createUsersTable);
-        db.run(createItemsTable);
-
-        db.close();
-    },
-
-
-    createUser : function (user) {
-        let db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
-        user.password = index.passwordHashing(user.password);
-        let insertNewUserQuery = 'INSERT INTO users (username, password) VALUES("' + user.username + '", "' + user.password + '")';
-        db.run(insertNewUserQuery);
-        db.close();
-        console.log("hello");
-    },
-
     getUserByUsername : function (username, callback) {
-        let db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
-        let getUserQuery = 'SELECT * FROM users WHERE username="' + username + '";';
-        db.get(getUserQuery, (err, row) => {
-            if (row !== undefined) {
-                callback({'id': row.id, 'username': row.username, 'password': row.password, 'token': row.token});
-            } else {
-                callback(null);
-            }
-            db.close();
+        User.findOne({ where: {username: username} }).then(response => {
+            callback(response);
         });
     },
 
@@ -110,26 +43,24 @@ module.exports = {
     },
 
     getUserIdByToken : function (token, callback) {
-        let db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
-        let getUserQuery = 'SELECT id FROM users WHERE token="' + token + '";';
-        db.get(getUserQuery, function (err, row) {
-            if (row !== undefined) {
-                callback(row.id);
-            } else {
+        User.findOne({ where: {token: token} }).then(response => {
+            if (response === null) {
                 callback(-1);
+            } else {
+                callback(response.dataValues.id);
             }
-            db.close();
+
         });
     },
 
-    updateUserToken : function (username, userId) {
-        let db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
+    updateUserToken : function (username, userId, callback) {
         let token = index.createToken(username, userId);
-        let updateUserTokenQuery = 'UPDATE users SET token="' + token + '" WHERE id="' + userId + '";';
-        db.run(updateUserTokenQuery);
-
-        db.close();
-        return token;
+        User.update(
+            { token: token },
+            { where: {id: userId} }
+        ).then(response => {
+            callback(token);
+        });
     },
 
     verifyUser : function (username, password, callback) {
@@ -146,28 +77,41 @@ module.exports = {
         });
     },
 
-    createTask : function (todo) {
-        let db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
-        let insertNewTaskQuery = 'INSERT INTO items (user_id, task) VALUES("' + todo.userId + '", "' + todo.task + '")';
-        db.run(insertNewTaskQuery);
-
-        db.close();
+    createTask : function (todo, callback) {
+        Todo.create({
+            user_id: todo.userId,
+            content: todo.task
+        }).then(result => {
+            callback(result);
+        });
     },
 
     getTasks : function (userId, callback) {
-
-        let db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
-        let getTasksQuery = 'SELECT task FROM items WHERE user_id="' + userId + '";';
-        db.all(getTasksQuery, [], (err, rows) => {
+        Todo.findAll({ where: {user_id: userId} }).then(response => {
             let usersTasks = [];
-            for (let i = 0; i < rows.length; i++) {
-                usersTasks.push(rows[i].task);
+            for (let i = 0; i < response.length; i++) {
+                usersTasks.push({'id': response[i].dataValues.id, 'content': response[i].dataValues.content});
             }
             callback(usersTasks);
-            db.close();
         });
 
     },
+
+    DeleteToken : function (userId, callback) {
+        User.update(
+            { token: null },
+            { where: {id: userId} }
+        ).then(response => {
+            callback("Success");
+        });
+    },
+
+    deleteTask : function (taskId, callback) {
+        Todo.destroy(
+            { where: {id: taskId} }
+        ).then(response => {
+            callback("Success");
+        });
+    }
 };
 
-*/

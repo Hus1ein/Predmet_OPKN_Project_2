@@ -24,15 +24,18 @@ router.post('/login', function(req, res, next) {
             let userToken = undefined;
             if (currentUser !== null) {
 
-                if (currentUser.token !== undefined) {
+                if (currentUser.token !== null && currentUser.token !== undefined) {
                     userToken = currentUser.token;
-                } else {
-                    let userToken = database.updateUserToken(username, currentUser.id);
                     res.cookie('uid', userToken);
-                    res.render('greetingMessage', {'username': username});
+                    res.redirect('../todo');
+                } else {
+                    database.updateUserToken(username, currentUser.id, function (respone) {
+                        userToken = respone;
+                        res.cookie('uid', userToken);
+                        res.redirect('../todo');
+                    });
                 }
-                res.cookie('uid', userToken);
-                res.redirect('../todo');
+
             } else {
                 res.render('notRegistered');
             }
@@ -52,20 +55,18 @@ router.post('/signup', function(req, res, next) {
 
     if (username !== "" && password !== ""){
         database.getUserByUsername(username, function (result) {
-            console.log(result);
             if (result !== null) {
                 res.render('alreadyRegistered', {'username': username});
             } else {
-                database.createUser({'username' : req.body.username, 'password' : password});
-                database.getUserByUsername('hussain.abdelilah@hotmail.com', function (user) {
-                    console.log(user);
-                    if (user !== null) {
-                        let userToken = database.updateUserToken(username, user.id);
+                database.createUser({'username' : req.body.username, 'password' : password}, function (user) {
+                    console.log("hussain");
+                    database.updateUserToken(username, user.id, function (response) {
+                        console.log(response);
+                        let userToken = response;
                         res.cookie('uid', userToken);
                         res.render('greetingMessage', {'username': username});
-                    }
+                    });
                 });
-
             }
         });
 
@@ -77,12 +78,12 @@ router.post('/signup', function(req, res, next) {
 
 /* GET logout page. */
 router.get('/logout', function(req, res, next) {
-    res.clearCookie('uid');
-    res.redirect('../');
-});
-
-router.get('/test', function (req, res, next) {
-    console.log("Hello");
+    database.getUserIdByToken(req.body.uid, function (userId) {
+        database.DeleteToken(userId, function (response) {
+            res.clearCookie('uid');
+            res.redirect('../');
+        });
+    });
 });
 
 module.exports = router;
